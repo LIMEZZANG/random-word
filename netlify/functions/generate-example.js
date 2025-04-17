@@ -1,30 +1,549 @@
-const { Configuration, OpenAIApi } = require("openai");
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Random Word Viewer</title>
+    <style>
+      :root {
+        --bg-light: #f9f9f9;
+        --bg-dark: #1e1e1e;
+        --text-light: #333;
+        --text-dark: #eee;
+        --accent-light: #4caf50;
+        --accent-dark: #81c784;
+        --hover-light: #45a049;
+        --hover-dark: #66bb6a;
+      }
 
-exports.handler = async (event) => {
-  const { words, meanings } = JSON.parse(event.body);
+      [data-theme='light'] {
+        --bg: var(--bg-light);
+        --text: var(--text-light);
+        --accent: var(--accent-light);
+        --hover: var(--hover-light);
+      }
 
-  const prompt = `다음 단어들 중 최소 3개 이상을 사용해서 자연스러운 영어 문장을 하나 만들어줘. 
-단어: ${words.map((w, i) => `${w} (${meanings[i]})`).join(', ')}`;
+      [data-theme='dark'] {
+        --bg: var(--bg-dark);
+        --text: var(--text-dark);
+        --accent: var(--accent-dark);
+        --hover: var(--hover-dark);
+      }
 
-  const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-  const openai = new OpenAIApi(configuration);
+      body {
+        font-family: 'Times New Roman', sans-serif;
+        padding: 20px;
+        background-color: var(--bg);
+        color: var(--text);
+        transition: background-color 0.3s, color 0.3s;
+      }
 
-  try {
-    const response = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
-    });
+      h2 {
+        margin-top: 40px;
+        margin-bottom: 10px;
+      }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ result: response.data.choices[0].message.content }),
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Failed to get GPT response" }),
-    };
-  }
-};
+      button {
+        font-size: 0.9rem;
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        background-color: var(--accent);
+        color: white;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+
+      button:hover {
+        background-color: var(--hover);
+      }
+
+      input[type='file'],
+      input[type='number'] {
+        padding: 6px;
+        font-size: 0.9rem;
+        margin-top: 6px;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid #ccc;
+      }
+
+      #wordDisplay {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .line {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .word {
+        background: #ffffff;
+        padding: 10px 16px;
+        border-radius: 12px;
+        margin: 5px;
+        cursor: pointer;
+        transition: 0.2s;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      [data-theme='dark'] .word {
+        background: #2e2e2e;
+        color: var(--text);
+      }
+
+      .word.first {
+        font-size: 4rem;
+        font-weight: bold;
+      }
+
+      .word.clicked {
+        background: #ffe5e5;
+        color: red;
+      }
+
+      [data-theme='dark'] .word.clicked {
+        background: #5c1f1f;
+      }
+
+      .meaning {
+        font-size: 1rem;
+        color: inherit;
+        margin-top: 5px;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .file-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      #wordCounter {
+        font-weight: bold;
+        font-size: 0.95rem;
+      }
+
+      #listInfo {
+        margin-top: 20px;
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+
+      textarea {
+        width: 100%;
+        height: 100px;
+        margin-top: 10px;
+        font-size: 0.95rem;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid #ccc;
+      }
+
+      .theme-toggle {
+        margin-top: 20px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        background-color: #666;
+      }
+    </style>
+  </head>
+    <body>
+        <h1>📘 랜덤 단어 출력기</h1>
+		<button class="theme-toggle" onclick="toggleTheme()">🌙/☀️ 테마 전환</button>
+		<br>
+        <label>⏱ <input id="intervalInput" type="number" min="0.1" max="5" step="0.1" value="0.7" /> 초 간격</label>
+        <div class="top-bar">
+            <div class="controls">
+                <button onclick="startDisplay()">Start</button>
+                <button onclick="stopDisplay()">Stop</button>
+                <button onclick="resetDisplay()">Reset</button>
+                <div id="wordCounter"></div>
+            </div>
+        </div>
+        <div class="file-actions" style="margin-top: 10px;">
+            <input type="file" id="importFile" onchange="importData(event)" />
+        </div>
+        <div id="listInfo"></div>
+        <div id="wordDisplay"></div>
+
+        <h2>📂 목록 선택</h2>
+        <button style="background-color: #2196f3; padding: 6px 10px; font-size: 0.85rem;" onclick="exportData()">내보내기</button>
+        <br />
+        <button onclick="toggleSelectAllLists()">✔ 전체 선택/해제</button>
+        <br />
+        <div id="listSelection" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;"></div>
+
+        <h2>🧪 예제 생성</h2>
+        <div>
+          <label for="exampleList">예제 생성</label>
+          <button onclick="generateExampleFromSelected()">예제 생성</button>
+        </div>
+        <pre id="exampleResult" style="white-space: pre-wrap; background: #f0f0f0; padding: 10px; margin-top: 10px; font-size: 0.95rem;"></pre>
+        <pre id="exampleTranslate" style="white-space: pre-wrap; background: #f9f9f9; padding: 10px; margin-top: 5px; font-size: 0.9rem; color: #555;"></pre>
+
+
+        <h2>📦 목록 추가</h2>
+        <input type="text" id="listName" placeholder="예: 2일차" />
+        <textarea id="wordInput" placeholder="단어,뜻 형식으로 줄바꿈하여 입력"></textarea>
+        <button onclick="addList()">➕ 목록 추가</button>
+
+        <script>
+            let wordLists = {
+                "1일차": [
+                    ["fund", "기반"],
+                    ["fus", "섞이다"],
+                    ["gar", "덮다"],
+                    ["gard", "지켜보다"],
+                    ["gener", "태생의"],
+                    ["gest", "운반하다"],
+                    ["grad", "단계"],
+                    ["grat", "기쁨"],
+                    ["grav", "무거운"],
+                    ["hab", "가지다"],
+                    ["hand", "손"],
+                    ["hap", "운"],
+                    ["heal", "완전한"],
+                    ["hered", "상속인"],
+                    ["horr", "떨다"],
+                    ["host", "손님"],
+                    ["hum", "땅"],
+                    ["ide", "보다"],
+                    ["insula", "섬"],
+                    ["it", "가다"],
+                ],
+            };
+
+            let selectedLists = new Set();
+            let remainingWords = [];
+            let displayedWords = [];
+            let timer = null;
+            let clickedWords = new Set();
+            let displayEndedNaturally = false;
+
+            function startDisplay() {
+                if (timer) return;
+                if (remainingWords.length === 0 && displayedWords.length > 0) {
+                    if (displayedWords.length === displayedWords.length + remainingWords.length) return;
+                    resetDisplay();
+                }
+                if (remainingWords.length === 0) {
+                    selectedLists.forEach((name) => {
+                        remainingWords.push(...wordLists[name]);
+                    });
+                    remainingWords = shuffle(remainingWords);
+                    updateListInfo();
+                }
+                if (remainingWords.length === 0) return;
+
+                const interval = parseFloat(document.getElementById("intervalInput").value) * 1000;
+                displayEndedNaturally = false;
+                timer = setInterval(() => {
+                    if (remainingWords.length === 0) {
+                        stopDisplay();
+                        displayEndedNaturally = true;
+                        return;
+                    }
+                    const word = remainingWords.shift();
+                    displayedWords.unshift(word);
+                    updateDisplay();
+                }, interval);
+            }
+            function stopDisplay() {
+                clearInterval(timer);
+                timer = null;
+            }
+
+            function resetDisplay() {
+                stopDisplay();
+                remainingWords = [];
+                displayedWords = [];
+                clickedWords.clear();
+                updateDisplay();
+                updateListInfo();
+            }
+
+            function updateDisplay() {
+                const displayDiv = document.getElementById("wordDisplay");
+                if (!displayDiv) return;
+                displayDiv.innerHTML = "";
+                let redCount = 0;
+
+                if (displayedWords.length > 0) {
+                    const firstLine = document.createElement("div");
+                    firstLine.className = "line";
+                    const firstEntry = displayedWords[0];
+                    const [word, meaning] = Array.isArray(firstEntry) ? firstEntry : [firstEntry, ""];
+                    const el = document.createElement("div");
+                    el.className = "word first";
+                    if (clickedWords.has(word)) {
+                        el.classList.add("clicked");
+                        redCount++;
+                    }
+                    const wordText = document.createElement("div");
+                    wordText.textContent = word;
+                    el.appendChild(wordText);
+                    if (clickedWords.has(word) && meaning) {
+                        const m = document.createElement("div");
+                        m.className = "meaning";
+                        m.textContent = meaning;
+                        el.appendChild(m);
+                    }
+                    el.onclick = () => {
+                        if (!clickedWords.has(word)) {
+                            stopDisplay();
+                            clickedWords.add(word);
+                            updateDisplay();
+                        } else if (!displayEndedNaturally) {
+                            startDisplay();
+                        }
+                    };
+                    firstLine.appendChild(el);
+                    displayDiv.appendChild(firstLine);
+                }
+
+                const restLine = document.createElement("div");
+                restLine.className = "line";
+                for (let i = 1; i < displayedWords.length; i++) {
+                    const [word, meaning] = Array.isArray(displayedWords[i]) ? displayedWords[i] : [displayedWords[i], ""];
+                    const el = document.createElement("div");
+                    el.className = "word";
+                    if (clickedWords.has(word)) {
+                        el.classList.add("clicked");
+                        redCount++;
+                    }
+                    const wordText = document.createElement("div");
+                    wordText.textContent = word;
+                    el.appendChild(wordText);
+                    if (clickedWords.has(word) && meaning) {
+                        const m = document.createElement("div");
+                        m.className = "meaning";
+                        m.textContent = meaning;
+                        el.appendChild(m);
+                    }
+                    el.onclick = () => {
+                        if (!clickedWords.has(word)) {
+                            stopDisplay();
+                            clickedWords.add(word);
+                            updateDisplay();
+                        } else if (!displayEndedNaturally) {
+                            startDisplay();
+                        }
+                    };
+                    restLine.appendChild(el);
+                }
+                displayDiv.appendChild(restLine);
+
+                const counter = document.getElementById("wordCounter");
+                if (counter) {
+                    counter.textContent = `${redCount}/${displayedWords.length}/${displayedWords.length + remainingWords.length}`;
+                }
+            }
+
+            function updateListInfo() {
+                const info = document.getElementById("listInfo");
+                if (!info) return;
+                const listNames = [...selectedLists].join(", ");
+                info.textContent = `사용 중인 목록: ${listNames}`;
+
+                const selectionDiv = document.getElementById("listSelection");
+                selectionDiv.innerHTML = "";
+                Object.keys(wordLists).forEach((name) => {
+                    const label = document.createElement("label");
+                    label.style.marginRight = "10px";
+
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.checked = selectedLists.has(name);
+                    checkbox.onchange = () => {
+                        if (checkbox.checked) {
+                            selectedLists.add(name);
+                        } else {
+                            selectedLists.delete(name);
+                        }
+                        updateListInfo();
+                    };
+
+                    const editBtn = document.createElement("button");
+                    editBtn.textContent = "✏";
+                    editBtn.style.marginLeft = "5px";
+                    editBtn.onclick = () => {
+                        document.getElementById("listName").value = name;
+                        document.getElementById("wordInput").value = wordLists[name].map(([w, m]) => `${w},${m}`).join("\n");
+                    };
+
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.textContent = "🗑";
+                    deleteBtn.onclick = () => {
+                        delete wordLists[name];
+                        selectedLists.delete(name);
+                        saveToLocalStorage();
+                        resetDisplay();
+                        updateListInfo();
+                    };
+
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(name));
+                    label.appendChild(editBtn);
+                    label.appendChild(deleteBtn);
+                    selectionDiv.appendChild(label);
+                });
+            }
+            // 목록 추가 시 기존과 중복되면 덮어쓰기됨
+            function addList() {
+                const name = document.getElementById("listName").value.trim();
+                const lines = document
+                    .getElementById("wordInput")
+                    .value.split("\n")
+                    .map((line) => line.trim())
+                    .filter((line) => line.length > 0);
+
+                const entries = lines.map((line) => {
+                    const [word, ...meaningParts] = line.split(",");
+                    return [word.trim(), meaningParts.join(",").trim()];
+                });
+
+                if (name && entries.length > 0) {
+                    wordLists[name] = entries;
+                    selectedLists.add(name);
+                    saveToLocalStorage();
+                    resetDisplay();
+                    updateListInfo();
+                }
+            }
+            function exportData() {
+                const blob = new Blob([JSON.stringify(wordLists, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                const now = new Date();
+                const pad = (n) => n.toString().padStart(2, "0");
+                const filename = `wordlists_${now.getFullYear().toString().slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            function importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (typeof data === "object") {
+                            wordLists = data;
+                            saveToLocalStorage();
+                            selectedLists = new Set(Object.keys(wordLists));
+                            resetDisplay();
+                        }
+                    } catch (err) {
+                        alert("올바르지 않은 파일입니다.");
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            function saveToLocalStorage() {
+                localStorage.setItem("wordLists", JSON.stringify(wordLists));
+            }
+
+            function addList() {
+                const name = document.getElementById("listName").value.trim();
+                const lines = document
+                    .getElementById("wordInput")
+                    .value.split("\n")
+                    .map((line) => line.trim())
+                    .filter((line) => line.length > 0);
+
+                const entries = lines.map((line) => {
+                    const [word, ...meaningParts] = line.split(",");
+                    return [word.trim(), meaningParts.join(",").trim()];
+                });
+
+                if (name && entries.length > 0) {
+                    wordLists[name] = entries;
+                    selectedLists = new Set([name]);
+                    saveToLocalStorage();
+                    resetDisplay();
+                }
+            }
+
+            function shuffle(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+            function toggleSelectAllLists() {
+                const all = Object.keys(wordLists);
+                const allSelected = all.every((name) => selectedLists.has(name));
+                selectedLists = allSelected ? new Set() : new Set(all);
+                updateListInfo();
+            }
+            // 클릭 또는 키보드로 재시작을 막기 위한 조건 추가
+            function shouldRestartFromInteraction() {
+                const total = displayedWords.length + remainingWords.length;
+                const done = displayedWords.length;
+                return !displayEndedNaturally && done < total;
+            }
+			
+   	        function toggleTheme() {
+				const html = document.documentElement;
+				const currentTheme = html.getAttribute('data-theme');
+				const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+				html.setAttribute('data-theme', newTheme);
+			}
+			
+			async function generateExampleFromSelected() {
+              const words = [];
+              const meanings = [];
+              selectedLists.forEach(name => {
+                (wordLists[name] || []).forEach(([w, m]) => {
+                  words.push(w);
+                  meanings.push(m);
+                });
+              });
+            
+              if (words.length === 0) {
+                alert("먼저 예제를 생성할 단어 목록을 선택해주세요.");
+                return;
+              }
+            
+              try {
+                const response = await fetch('/.netlify/functions/generate-example', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ words, meanings })
+                });
+                const data = await response.json();
+                document.getElementById('exampleResult').textContent = data.result || '예제를 불러오지 못했습니다.';
+              } catch (error) {
+                document.getElementById('exampleResult').textContent = '서버 요청 중 오류가 발생했습니다.';
+              }
+            }
+			
+			toggleTheme();
+        </script>
+    </body>
+</html>
