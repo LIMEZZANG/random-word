@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random Word Viewer (Extended)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      margin: 0;
+      box-sizing: border-box;
+      overflow-y: scroll;
+    }
+    #wordDisplay {
+      display: flex;
+      flex-direction: row;
+      overflow-x: auto;
+      overflow-y: hidden;
+      gap: 16px;
+      margin-top: 20px;
+      padding-bottom: 10px;
+      align-items: flex-end;
+    }
+    .word {
+      background: #f0f0f0;
+      padding: 20px 30px;
+      border-radius: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-width: 60px;
+      min-height: 60px;
+      cursor: pointer;
+    }
+    .word.first {
+      font-size: 6.2rem;
+      font-weight: bold;
+      min-width: 110px;
+      min-height: 110px;
+    }
+    .word.clicked {
+      background: #ffe5e5;
+      color: red;
+    }
+    .word.clicked .meaning {
+      color: red;
+    }
+    .meaning {
+      font-size: 1rem;
+      color: inherit;
+      margin-top: 8px;
+    }
+    textarea, input[type="text"], input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 1rem;
+      padding: 8px;
+    }
+    #wordInput {
+      height: 160px;
+    }
+    button {
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      margin-top: 8px;
+    }
+    input[type="file"] {
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      margin-top: 8px;
+    }
+    .list-item {
+      margin-top: 10px;
+      padding: 5px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      flex-wrap: wrap;
+    }
+    .list-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: bold;
+    }
+    .list-actions {
+      display: flex;
+      gap: 5px;
+    }
+    @media (max-width: 600px) {
+      .word.first {
+        font-size: 1.8rem;
+        min-width: 90px;
+        min-height: 90px;
+      }
+      .list-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .list-actions {
+        margin-top: 5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>랜덤 단어 출력</h2>
+  <label for="intervalInput">간격 (초, 0.1 ~ 5):</label>
+  <input type="number" id="intervalInput" min="0.1" max="5" step="0.1" value="0.7">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+    <div>
+      <button onclick="startDisplay()">Start</button>
+      <button onclick="stopDisplay()">Stop</button>
+      <button onclick="resetDisplay()">Reset</button>
+    </div>
+    <div id="wordCounter" style="font-weight: bold;"></div>
+  </div>
+  <div id="wordDisplay"></div>
+
+  <hr />
+
+  <h2>단어 목록 관리</h2>
+  <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+    <button onclick="exportData()">📤 내보내기</button>
+    <label for="importFile" style="flex: 1;">
+      <input type="file" id="importFile" onchange="importData(event)" style="width: 100%;" />
+    </label>
+  </div>
+  <br />
+
+  <div id="lists"></div>
+
+  <h3>새 목록 추가</h3>
+  <input type="text" id="listName" placeholder="예: 1일차" />
+  <textarea id="wordInput" placeholder="단어(뜻1,뜻2,...) 형식으로 줄바꿈 입력"></textarea>
+  <button onclick="addList()">목록 추가</button>
+
+  <script>
+    let wordLists = JSON.parse(localStorage.getItem('wordLists')) || {
+      "샘플": [
+        ["apple", "사과"],
+        ["banana", "바나나"]
+      ]
+    };
+
+    let selectedLists = new Set();
+    let remainingWords = [];
+    let displayedWords = [];
+    let timer = null;
+    let clickedWords = new Set();
+
+    function saveToLocalStorage() {
+      localStorage.setItem('wordLists', JSON.stringify(wordLists));
+    }
+
+	function exportData() {
+		const blob = new Blob([JSON.stringify(wordLists, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+	
+		const now = new Date();
+		const pad = n => n.toString().padStart(2, '0');
+		const filename = `wordlists_${now.getFullYear().toString().slice(2)}${pad(now.getMonth()+1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+	
+		a.href = url;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (typeof data === 'object') {
+            wordLists = data;
+            saveToLocalStorage();
+            renderLists();
+            event.target.value = null;
+          }
+        } catch (err) {
+          alert('올바르지 않은 파일입니다.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function renderLists() {
+      const listsDiv = document.getElementById('lists');
+      listsDiv.innerHTML = '';
+      const keys = Object.keys(wordLists).reverse();
+      for (const listName of keys) {
+        const item = document.createElement('div');
+        item.className = 'list-item';
+
+        const label = document.createElement('div');
+        label.className = 'list-label';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = selectedLists.has(listName);
+        checkbox.onchange = () => {
+          if (checkbox.checked) selectedLists.add(listName);
+          else selectedLists.delete(listName);
+        };
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(listName));
+
+        const actions = document.createElement('div');
+        actions.className = 'list-actions';
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => {
+          document.getElementById('listName').value = listName;
+          document.getElementById('wordInput').value = wordLists[listName].map(w => w.join(',')).join('\n');
+          delete wordLists[listName];
+          selectedLists.delete(listName);
+          saveToLocalStorage();
+          renderLists();
+        };
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '🗑';
+        deleteBtn.onclick = () => {
+          delete wordLists[listName];
+          selectedLists.delete(listName);
+          saveToLocalStorage();
+          renderLists();
+        };
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+
+        item.appendChild(label);
+        item.appendChild(actions);
+        listsDiv.appendChild(item);
+      }
+    }
+
+    function addList() {
+      const name = document.getElementById('listName').value.trim();
+      const lines = document.getElementById('wordInput').value
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
+
+      const words = lines.map(line => {
+        const [word, meaning = ''] = line.split(/[,，]/, 2);
+        return [word.trim(), line.substring(line.indexOf(',') + 1).trim()];
+      });
+
+      if (name.length > 0 && words.length > 0) {
+        wordLists[name] = words;
+        selectedLists.add(name);
+        document.getElementById('listName').value = '';
+        document.getElementById('wordInput').value = '';
+        saveToLocalStorage();
+        renderLists();
+      }
+    }
+
+    function startDisplay() {
+      if (timer) return;
+      if (remainingWords.length === 0 && displayedWords.length > 0) {
+        resetDisplay();
+      }
+      if (remainingWords.length === 0) {
+        selectedLists.forEach(name => {
+          remainingWords.push(...wordLists[name]);
+        });
+        remainingWords = shuffle(remainingWords);
+      }
+      if (remainingWords.length === 0) return;
+
+      const interval = parseFloat(document.getElementById('intervalInput').value) * 1000;
+      timer = setInterval(() => {
+        if (remainingWords.length === 0) {
+          stopDisplay();
+          return;
+        }
+        const word = remainingWords.shift();
+        displayedWords.unshift(word);
+        updateDisplay();
+      }, interval);
+    }
+
+    function stopDisplay() {
+      clearInterval(timer);
+      timer = null;
+    }
+
+    function resetDisplay() {
+      stopDisplay();
+      remainingWords = [];
+      displayedWords = [];
+      clickedWords.clear();
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+		  const displayDiv = document.getElementById('wordDisplay');
+		  displayDiv.innerHTML = '';
+		  let redCount = 0;
+
+		  displayedWords.forEach((entry, index) => {
+			const [word, meaning] = Array.isArray(entry) ? entry : [entry, ''];
+			const el = document.createElement('div');
+			el.className = 'word';
+			if (index === 0) el.classList.add('first');
+			if (clickedWords.has(word)) {
+			  el.classList.add('clicked');
+			  redCount++;
+			}
+
+			const wordText = document.createElement('div');
+			wordText.textContent = word;
+			el.appendChild(wordText);
+
+			if (clickedWords.has(word) && meaning) {
+			  const m = document.createElement('div');
+			  m.className = 'meaning';
+			  m.textContent = meaning;
+			  el.appendChild(m);
+			}
+
+			el.onclick = () => {
+			  stopDisplay();
+			  clickedWords.add(word);
+			  updateDisplay();
+			};
+
+			displayDiv.appendChild(el);
+		  });
+
+		  const counter = document.getElementById('wordCounter');
+		  if (counter) {
+			counter.textContent = `${displayedWords.length - redCount}/${displayedWords.length}`;
+		  }
+	}
+
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    renderLists();
+  </script>
+</body>
+</html>
