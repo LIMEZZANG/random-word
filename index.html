@@ -28,20 +28,26 @@
     button:hover {
       background-color: #45a049;
     }
-    input[type="file"] {
+    input[type="file"], input[type="number"] {
       padding: 6px;
       font-size: 0.9rem;
       margin-top: 6px;
     }
     #wordDisplay {
       margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .line {
+      display: flex;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
     }
     .word {
       background: #ffffff;
       padding: 10px 16px;
       border-radius: 12px;
       margin: 5px;
-      display: inline-block;
       cursor: pointer;
       transition: 0.2s;
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
@@ -86,6 +92,12 @@
       font-size: 0.95rem;
       color: #666;
     }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
   </style>
 </head>
 <body>
@@ -95,6 +107,7 @@
       <button onclick="startDisplay()">Start</button>
       <button onclick="stopDisplay()">Stop</button>
       <button onclick="resetDisplay()">Reset</button>
+      <label>⏱ <input id="intervalInput" type="number" min="0.1" max="5" step="0.1" value="0.7"> 초</label>
       <div id="wordCounter"></div>
     </div>
     <div class="file-actions">
@@ -104,6 +117,11 @@
   </div>
   <div id="listInfo"></div>
   <div id="wordDisplay"></div>
+
+  <h2>📦 목록 추가</h2>
+  <input type="text" id="listName" placeholder="예: 2일차">
+  <textarea id="wordInput" placeholder="단어,뜻 형식으로 줄바꿈하여 입력"></textarea>
+  <button onclick="addList()">➕ 목록 추가</button>
 
   <script>
     let wordLists = {
@@ -136,7 +154,7 @@
       }
       if (remainingWords.length === 0) return;
 
-      const interval = 700;
+      const interval = parseFloat(document.getElementById('intervalInput').value) * 1000;
       timer = setInterval(() => {
         if (remainingWords.length === 0) {
           stopDisplay();
@@ -167,39 +185,66 @@
       displayDiv.innerHTML = '';
       let redCount = 0;
 
-      displayedWords.forEach((entry, index) => {
-        const [word, meaning] = Array.isArray(entry) ? entry : [entry, ''];
+      if (displayedWords.length > 0) {
+        const firstLine = document.createElement('div');
+        firstLine.className = 'line';
+        const firstEntry = displayedWords[0];
+        const [word, meaning] = Array.isArray(firstEntry) ? firstEntry : [firstEntry, ''];
         const el = document.createElement('div');
-        el.className = 'word';
-        if (index === 0) el.classList.add('first');
+        el.className = 'word first';
         if (clickedWords.has(word)) {
           el.classList.add('clicked');
           redCount++;
         }
-
         const wordText = document.createElement('div');
         wordText.textContent = word;
         el.appendChild(wordText);
-
         if (clickedWords.has(word) && meaning) {
           const m = document.createElement('div');
           m.className = 'meaning';
           m.textContent = meaning;
           el.appendChild(m);
         }
-
         el.onclick = () => {
           stopDisplay();
           clickedWords.add(word);
           updateDisplay();
         };
+        firstLine.appendChild(el);
+        displayDiv.appendChild(firstLine);
+      }
 
-        displayDiv.appendChild(el);
-      });
+      const restLine = document.createElement('div');
+      restLine.className = 'line';
+      for (let i = 1; i < displayedWords.length; i++) {
+        const [word, meaning] = Array.isArray(displayedWords[i]) ? displayedWords[i] : [displayedWords[i], ''];
+        const el = document.createElement('div');
+        el.className = 'word';
+        if (clickedWords.has(word)) {
+          el.classList.add('clicked');
+          redCount++;
+        }
+        const wordText = document.createElement('div');
+        wordText.textContent = word;
+        el.appendChild(wordText);
+        if (clickedWords.has(word) && meaning) {
+          const m = document.createElement('div');
+          m.className = 'meaning';
+          m.textContent = meaning;
+          el.appendChild(m);
+        }
+        el.onclick = () => {
+          stopDisplay();
+          clickedWords.add(word);
+          updateDisplay();
+        };
+        restLine.appendChild(el);
+      }
+      displayDiv.appendChild(restLine);
 
       const counter = document.getElementById('wordCounter');
       if (counter) {
-        counter.textContent = `${displayedWords.length - redCount}/${displayedWords.length}`;
+        counter.textContent = `${redCount}/${displayedWords.length}/${displayedWords.length + remainingWords.length}`;
       }
     }
 
@@ -247,6 +292,26 @@
 
     function saveToLocalStorage() {
       localStorage.setItem('wordLists', JSON.stringify(wordLists));
+    }
+
+    function addList() {
+      const name = document.getElementById('listName').value.trim();
+      const lines = document.getElementById('wordInput').value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      const entries = lines.map(line => {
+        const [word, ...meaningParts] = line.split(',');
+        return [word.trim(), meaningParts.join(',').trim()];
+      });
+
+      if (name && entries.length > 0) {
+        wordLists[name] = entries;
+        selectedLists = new Set([name]);
+        saveToLocalStorage();
+        resetDisplay();
+      }
     }
 
     function shuffle(arr) {
