@@ -6,7 +6,7 @@
   <title>Random Word Viewer</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Times New Roman', sans-serif;
       padding: 20px;
       background-color: #f9f9f9;
       color: #333;
@@ -191,72 +191,81 @@
     }
 
     function updateDisplay() {
-      const displayDiv = document.getElementById('wordDisplay');
-      displayDiv.innerHTML = '';
-      let redCount = 0;
+  const displayDiv = document.getElementById('wordDisplay');
+  if (!displayDiv) return;
+  displayDiv.innerHTML = '';
+  let redCount = 0;
 
-      if (displayedWords.length > 0) {
-        const firstLine = document.createElement('div');
-        firstLine.className = 'line';
-        const firstEntry = displayedWords[0];
-        const [word, meaning] = Array.isArray(firstEntry) ? firstEntry : [firstEntry, ''];
-        const el = document.createElement('div');
-        el.className = 'word first';
-        if (clickedWords.has(word)) {
-          el.classList.add('clicked');
-          redCount++;
-        }
-        const wordText = document.createElement('div');
-        wordText.textContent = word;
-        el.appendChild(wordText);
-        if (clickedWords.has(word) && meaning) {
-          const m = document.createElement('div');
-          m.className = 'meaning';
-          m.textContent = meaning;
-          el.appendChild(m);
-        }
-        el.onclick = () => {
-          stopDisplay();
-          clickedWords.add(word);
-          updateDisplay();
-        };
-        firstLine.appendChild(el);
-        displayDiv.appendChild(firstLine);
-      }
-
-      const restLine = document.createElement('div');
-      restLine.className = 'line';
-      for (let i = 1; i < displayedWords.length; i++) {
-        const [word, meaning] = Array.isArray(displayedWords[i]) ? displayedWords[i] : [displayedWords[i], ''];
-        const el = document.createElement('div');
-        el.className = 'word';
-        if (clickedWords.has(word)) {
-          el.classList.add('clicked');
-          redCount++;
-        }
-        const wordText = document.createElement('div');
-        wordText.textContent = word;
-        el.appendChild(wordText);
-        if (clickedWords.has(word) && meaning) {
-          const m = document.createElement('div');
-          m.className = 'meaning';
-          m.textContent = meaning;
-          el.appendChild(m);
-        }
-        el.onclick = () => {
-          stopDisplay();
-          clickedWords.add(word);
-          updateDisplay();
-        };
-        restLine.appendChild(el);
-      }
-      displayDiv.appendChild(restLine);
-
-      const counter = document.getElementById('wordCounter');
-      if (counter) {
-        counter.textContent = `${redCount}/${displayedWords.length}/${displayedWords.length + remainingWords.length}`;
-      }
+  if (displayedWords.length > 0) {
+    const firstLine = document.createElement('div');
+    firstLine.className = 'line';
+    const firstEntry = displayedWords[0];
+    const [word, meaning] = Array.isArray(firstEntry) ? firstEntry : [firstEntry, ''];
+    const el = document.createElement('div');
+    el.className = 'word first';
+    if (clickedWords.has(word)) {
+      el.classList.add('clicked');
+      redCount++;
     }
+    const wordText = document.createElement('div');
+    wordText.textContent = word;
+    el.appendChild(wordText);
+    if (clickedWords.has(word) && meaning) {
+      const m = document.createElement('div');
+      m.className = 'meaning';
+      m.textContent = meaning;
+      el.appendChild(m);
+    }
+    el.onclick = () => {
+      if (!clickedWords.has(word)) {
+        stopDisplay();
+        clickedWords.add(word);
+        updateDisplay();
+      } else {
+        startDisplay();
+      }
+    };
+    firstLine.appendChild(el);
+    displayDiv.appendChild(firstLine);
+  }
+
+  const restLine = document.createElement('div');
+  restLine.className = 'line';
+  for (let i = 1; i < displayedWords.length; i++) {
+    const [word, meaning] = Array.isArray(displayedWords[i]) ? displayedWords[i] : [displayedWords[i], ''];
+    const el = document.createElement('div');
+    el.className = 'word';
+    if (clickedWords.has(word)) {
+      el.classList.add('clicked');
+      redCount++;
+    }
+    const wordText = document.createElement('div');
+    wordText.textContent = word;
+    el.appendChild(wordText);
+    if (clickedWords.has(word) && meaning) {
+      const m = document.createElement('div');
+      m.className = 'meaning';
+      m.textContent = meaning;
+      el.appendChild(m);
+    }
+    el.onclick = () => {
+      if (!clickedWords.has(word)) {
+        stopDisplay();
+        clickedWords.add(word);
+        updateDisplay();
+      } else {
+        startDisplay();
+      }
+    };
+    restLine.appendChild(el);
+  }
+  displayDiv.appendChild(restLine);
+
+  const counter = document.getElementById('wordCounter');
+  if (counter) {
+    counter.textContent = `${redCount}/${displayedWords.length}/${displayedWords.length + remainingWords.length}`;
+  }
+}
 
     function updateListInfo() {
   const info = document.getElementById('listInfo');
