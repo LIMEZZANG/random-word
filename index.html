@@ -209,28 +209,13 @@
         <button onclick="addList()">➕ 목록 추가</button>
 
         <script>
-            let wordLists = {
+            let wordLists = JSON.parse(localStorage.getItem("wordListsWithCount")) || {
                 "1일차": [
-                    ["fund", "기반"],
-                    ["fus", "섞이다"],
-                    ["gar", "덮다"],
-                    ["gard", "지켜보다"],
-                    ["gener", "태생의"],
-                    ["gest", "운반하다"],
-                    ["grad", "단계"],
-                    ["grat", "기쁨"],
-                    ["grav", "무거운"],
-                    ["hab", "가지다"],
-                    ["hand", "손"],
-                    ["hap", "운"],
-                    ["heal", "완전한"],
-                    ["hered", "상속인"],
-                    ["horr", "떨다"],
-                    ["host", "손님"],
-                    ["hum", "땅"],
-                    ["ide", "보다"],
-                    ["insula", "섬"],
-                    ["it", "가다"],
+                    ["fund", "기반", 0],
+                    ["fus", "섞이다", 0],
+                    ["gar", "덮다", 0],
+                    ["gard", "지켜보다", 0],
+                    ["gener", "태생의", 0],
                 ],
             };
 
@@ -248,8 +233,13 @@
                     resetDisplay();
                 }
                 if (remainingWords.length === 0) {
+                    const minCount = parseInt(document.getElementById("countFilterInput").value || 0);
                     selectedLists.forEach((name) => {
-                        remainingWords.push(...wordLists[name]);
+                        (wordLists[name] || []).forEach(([w, m, c]) => {
+                            if ((c || 0) >= minCount) {
+                                remainingWords.push([w, m, c]);
+                            }
+                        });
                     });
                     remainingWords = shuffle(remainingWords);
                     updateListInfo();
@@ -269,6 +259,7 @@
                     updateDisplay();
                 }, interval);
             }
+
             function stopDisplay() {
                 clearInterval(timer);
                 timer = null;
@@ -313,6 +304,7 @@
                         if (!clickedWords.has(word)) {
                             stopDisplay();
                             clickedWords.add(word);
+                            handleWordClick(word);
                             updateDisplay();
                         } else if (!displayEndedNaturally) {
                             startDisplay();
@@ -345,6 +337,7 @@
                         if (!clickedWords.has(word)) {
                             stopDisplay();
                             clickedWords.add(word);
+                            handleWordClick(word);
                             updateDisplay();
                         } else if (!displayEndedNaturally) {
                             startDisplay();
@@ -521,7 +514,6 @@
             toggleTheme();
 
             function handleWordClick(word) {
-                // 단어 클릭 시 count 증가
                 Object.keys(wordLists).forEach((list) => {
                     wordLists[list].forEach((entry) => {
                         if (entry[0] === word) {
@@ -530,7 +522,6 @@
                     });
                 });
                 saveToLocalStorage();
-                updateListInfo();
             }
         </script>
     </body>
