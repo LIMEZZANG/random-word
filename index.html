@@ -122,6 +122,9 @@
   <input type="text" id="listName" placeholder="예: 2일차">
   <textarea id="wordInput" placeholder="단어,뜻 형식으로 줄바꿈하여 입력"></textarea>
   <button onclick="addList()">➕ 목록 추가</button>
+  
+  <h2>📂 목록 선택</h2>
+  <div id="listSelection"></div>
 
   <script>
     let wordLists = {
@@ -249,12 +252,75 @@
     }
 
     function updateListInfo() {
-      const info = document.getElementById('listInfo');
-      if (!info) return;
-      const listNames = [...selectedLists].join(', ');
-      info.textContent = `사용 중인 목록: ${listNames}`;
-    }
+  const info = document.getElementById('listInfo');
+  if (!info) return;
+  const listNames = [...selectedLists].join(', ');
+  info.textContent = `사용 중인 목록: ${listNames}`;
 
+  const selectionDiv = document.getElementById('listSelection');
+  selectionDiv.innerHTML = '';
+  Object.keys(wordLists).forEach(name => {
+    const label = document.createElement('label');
+    label.style.marginRight = '10px';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selectedLists.has(name);
+    checkbox.onchange = () => {
+      if (checkbox.checked) {
+        selectedLists.add(name);
+      } else {
+        selectedLists.delete(name);
+      }
+      updateListInfo();
+    };
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏';
+    editBtn.style.marginLeft = '5px';
+    editBtn.onclick = () => {
+      document.getElementById('listName').value = name;
+      document.getElementById('wordInput').value = wordLists[name].map(([w, m]) => `${w},${m}`).join('\n');
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '🗑';
+    deleteBtn.onclick = () => {
+      delete wordLists[name];
+      selectedLists.delete(name);
+      saveToLocalStorage();
+      resetDisplay();
+      updateListInfo();
+    };
+
+    label.appendChild(checkbox);
+    label.appendChild(document.createTextNode(name));
+    label.appendChild(editBtn);
+    label.appendChild(deleteBtn);
+    selectionDiv.appendChild(label);
+  });
+}
+    // 목록 추가 시 기존과 중복되면 덮어쓰기됨
+function addList() {
+  const name = document.getElementById('listName').value.trim();
+  const lines = document.getElementById('wordInput').value
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  const entries = lines.map(line => {
+    const [word, ...meaningParts] = line.split(',');
+    return [word.trim(), meaningParts.join(',').trim()];
+  });
+
+  if (name && entries.length > 0) {
+    wordLists[name] = entries;
+    selectedLists.add(name);
+    saveToLocalStorage();
+    resetDisplay();
+    updateListInfo();
+  }
+}
     function exportData() {
       const blob = new Blob([JSON.stringify(wordLists, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
