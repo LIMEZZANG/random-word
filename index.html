@@ -221,7 +221,7 @@
         stopDisplay();
         clickedWords.add(word);
         updateDisplay();
-      } else {
+      } else if (!displayEndedNaturally) {
         startDisplay();
       }
     };
@@ -253,7 +253,7 @@
         stopDisplay();
         clickedWords.add(word);
         updateDisplay();
-      } else {
+      } else if (!displayEndedNaturally) {
         startDisplay();
       }
     };
