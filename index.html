@@ -47,7 +47,7 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
     .word.first {
-      font-size: 6.0rem;
+      font-size: 1.8rem;
       font-weight: bold;
     }
     .word.clicked {
@@ -81,6 +81,11 @@
       font-weight: bold;
       font-size: 0.95rem;
     }
+    #listInfo {
+      margin-top: 20px;
+      font-size: 0.95rem;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -97,6 +102,7 @@
       <button style="background-color:#2196F3; padding: 6px 10px; font-size: 0.85rem;" onclick="exportData()">내보내기</button>
     </div>
   </div>
+  <div id="listInfo"></div>
   <div id="wordDisplay"></div>
 
   <script>
@@ -126,6 +132,7 @@
           remainingWords.push(...wordLists[name]);
         });
         remainingWords = shuffle(remainingWords);
+        updateListInfo();
       }
       if (remainingWords.length === 0) return;
 
@@ -152,6 +159,7 @@
       displayedWords = [];
       clickedWords.clear();
       updateDisplay();
+      updateListInfo();
     }
 
     function updateDisplay() {
@@ -193,6 +201,13 @@
       if (counter) {
         counter.textContent = `${displayedWords.length - redCount}/${displayedWords.length}`;
       }
+    }
+
+    function updateListInfo() {
+      const info = document.getElementById('listInfo');
+      if (!info) return;
+      const listNames = [...selectedLists].join(', ');
+      info.textContent = `사용 중인 목록: ${listNames}`;
     }
 
     function exportData() {
