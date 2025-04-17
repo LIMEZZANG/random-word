@@ -114,15 +114,17 @@
   </div>
   <div class="file-actions" style="margin-top: 10px;">
     <input type="file" id="importFile" onchange="importData(event)">
-    <button style="background-color:#2196F3; padding: 6px 10px; font-size: 0.85rem;" onclick="exportData()">내보내기</button>
   </div>
   <div id="listInfo"></div>
   <div id="wordDisplay"></div>
 
   <h2>📂 목록 선택</h2>
+  <button style="background-color:#2196F3; padding: 6px 10px; font-size: 0.85rem;" onclick="exportData()">내보내기</button>
+  <br>
   <button onclick="toggleSelectAllLists()">✔ 전체 선택/해제</button>
   <br>
   <div id="listSelection" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;"></div>
+  
 
   <h2>📦 목록 추가</h2>
   <input type="text" id="listName" placeholder="예: 2일차">
