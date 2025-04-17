@@ -144,11 +144,12 @@
       ]
     };
 
-    let selectedLists = new Set(["1일차"]);
-    let remainingWords = [];
-    let displayedWords = [];
-    let timer = null;
-    let clickedWords = new Set();
+	let selectedLists = new Set();
+	let remainingWords = [];
+	let displayedWords = [];
+	let timer = null;
+	let clickedWords = new Set();
+	let displayEndedNaturally = false;
 
     function startDisplay() {
       if (timer) return;
